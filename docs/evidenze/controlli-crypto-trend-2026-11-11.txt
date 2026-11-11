@@ -1,7 +1,7 @@
-# Output dei controlli PULSE-CT, 2026-11-11T21:47Z
+# Output dei controlli PULSE-CT, 2026-11-11T21:56Z
 
 ## fingerprint
-impronta b1c6dd542a8e7b9c · firmata non ancora · stato unsigned · dati fino a 2020-12-31
+impronta ed0adafbfb4d3e7d · firmata non ancora · stato unsigned · dati fino a 2020-12-31
 
 ## dev (criteri 3, 4, 5, 6-lookahead, leva della revisione 4; nessuna metrica di rendimento)
 Dati (criterio 3):
@@ -175,4 +175,4 @@ Sviluppo 2018-2020, solo controlli (nessuna metrica di rendimento):
 }
 
 ## test
-163 passed, 1 warning in 17.79s
+165 passed, 1 warning in 19.95s

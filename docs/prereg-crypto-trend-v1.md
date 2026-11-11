@@ -436,6 +436,29 @@ Ognuno dei due calcoli si è allineato al testo qui sopra per conto suo; il seco
 - **Indipendenza del secondo calcolo:** resta dichiarata come in revisione 2. Pesi, costi e rendimento coincidono
   fino a circa 1e-9, cosa che non si ottiene inseguendo due conteggi.
 
+### Revisione 5, 2026-11-11: esposizione diversa fra strategia e benchmark
+
+- **Cosa si è visto.** Dalla seconda rilettura di Grok sull'output dei controlli. Sullo sviluppo l'esposizione media è
+  **0,20** per la strategia e **0,52** per il benchmark. È una misura di esposizione, non di rendimento: era già
+  stampata dal controllo `dev` della sezione 9.
+- **Cosa implica.** La strategia sta in liquidità circa l'80% del tempo. Un drawdown più basso del benchmark
+  arriverebbe quindi in buona parte solo dalla minore esposizione, anche senza nessun valore del filtro.
+- **Il giudice vero è lo Sharpe.** La regola degli esiti della sezione 7 non cambia: "passa" richiede anche che il
+  limite basso dell'IC90 di ΔSharpe stia sopra −0,1. Lo Sharpe non cambia se si riduce l'esposizione con la
+  liquidità allo 0%. Quindi è il limite sullo Sharpe che impedisce di passare grazie alla sola minore esposizione,
+  e si dichiara qui come la condizione decisiva dell'ipotesi.
+- **Robustezza senza soglie: benchmark alla stessa esposizione.**
+  - k = esposizione media della strategia / esposizione media del benchmark, calcolate **sullo stesso periodo
+    valutato** (validazione o test), non fissate con i valori dello sviluppo.
+  - Benchmark scalato = rendimenti giornalieri del benchmark × k, cioè una quota fissa k ribilanciata ogni giorno
+    e il resto in liquidità allo 0%.
+  - Si riportano metriche e bootstrap della strategia contro questo benchmark. Mostra quanto della riduzione del
+    drawdown viene dal filtro e quanto dalla sola minore esposizione.
+- **Controlli fatti.** L'avviso della suite di test viene da starlette/anyio, non da pandas o numpy: i test di
+  PULSE-CT e il confronto indipendente girano anche con gli avvisi di deprecazione trasformati in errori. Un nuovo
+  test esegue `val` per intero su dati sintetici, perché quella parte del codice dopo la firma non si potrà più
+  correggere.
+
 ## 10. Firma
 
 | Campo | Valore |

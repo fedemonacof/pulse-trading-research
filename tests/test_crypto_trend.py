@@ -630,3 +630,42 @@ def test_simulate_with_cash_rate_reconciles(px):
     assert tb.interest.iloc[-1] > 0
     assert strategy.reconcile(tb)["ok"]
     assert tb.equity.iloc[-1] > base.equity.iloc[-1]
+
+
+def test_benchmark_scaled_to_strategy_exposure(px):
+    s, e = pd.Timestamp("2018-01-01"), pd.Timestamp("2018-06-01")
+    v3 = strategy.simulate(px, "V3", MODEL, end=e)
+    bench = strategy.simulate(px, "BENCH", MODEL, end=e)
+    x = robust.exposure_ratio(v3, bench, s, e)
+    assert x["k"] == pytest.approx(strategy.avg_exposure(v3, s, e) / strategy.avg_exposure(bench, s, e))
+    r_b = bench.returns(s, e)
+    scaled = robust.scaled_benchmark(r_b, 0.4)
+    assert stats.sharpe(scaled.to_numpy()) == pytest.approx(stats.sharpe(r_b.to_numpy()))   # lo Sharpe non cambia
+    assert stats.max_dd(scaled.to_numpy()) <= stats.max_dd(r_b.to_numpy())                  # il drawdown sì
+
+
+def test_evaluate_runs_end_to_end_on_synthetic(monkeypatch, capsys):
+    """Esegue `val` per intero su dati sintetici: la parte che dopo la firma non si potrà più correggere."""
+    from pulse_mm.research.crypto_trend import __main__ as cli, fx
+    p = {"BTC-USD": candles(n=1100, seed=1), "ETH-USD": candles(n=1100, seed=2)}
+    days = pd.date_range("2015-12-01", "2019-01-10")
+    recorded = []
+    monkeypatch.setitem(config.PERIODS, "val", (pd.Timestamp("2018-01-01"), pd.Timestamp("2018-12-31")))
+    monkeypatch.setattr(trials, "require_frozen", lambda: "f" * 16)
+    monkeypatch.setattr(trials, "runs_on", lambda *a, **k: 0)
+    monkeypatch.setattr(trials, "record", lambda *a, **k: recorded.append((a, k)))
+    monkeypatch.setattr(data, "load", lambda st=None: p)
+    monkeypatch.setattr(fx, "load", lambda st=None: pd.Series(1.1, index=days))
+    monkeypatch.setattr(robust, "tbill_load", lambda st=None: pd.Series(2.0, index=days))
+    monkeypatch.setattr(stats, "paired_bootstrap", lambda a, b, **k: {"d_sharpe": {"lo": 0.0, "hi": 0.1},
+                                                                      "d_dd": {"lo": -0.1, "hi": -0.01}})
+    monkeypatch.setattr(robust, "paired_bootstrap_metric", lambda a, b, fn, **k: {"point": 0.0})
+    monkeypatch.setattr(stats, "outcome", lambda boot: "passa")
+    cli.evaluate("val")
+    out = capsys.readouterr().out
+    rob = json.loads(out)["robustness (senza soglie)"]
+    assert {"eur (cambio BCE)", "risk_parity (1/σ63 al riallineamento)", "drawdown (revisione 4)",
+            "cash_tbill_3m (revisione 4)", "benchmark_same_exposure (revisione 5)"} <= set(rob)
+    assert rob["cash_tbill_3m (revisione 4)"]["reconcile"]["ok"]
+    assert 0 < rob["benchmark_same_exposure (revisione 5)"]["k"] <= 1.5
+    assert len(recorded) == 1 and recorded[0][1]["outcome"] == "passa"

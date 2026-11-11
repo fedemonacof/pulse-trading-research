@@ -177,3 +177,17 @@ def tbill_gaps(dtb3_pct: pd.Series, start, end, max_gap: int = 5) -> dict:
     return {"rates": len(t), "first": t.index.min(), "last": t.index.max(), "longest_gap_days": longest,
             "ok": bool(len(t) and t.index.min() <= pd.Timestamp(start) and longest is not None
                        and longest <= max_gap)}
+
+
+# ------------------------------------------------------------ benchmark a esposizione uguale (revisione 5)
+
+def exposure_ratio(res_s, res_b, start, end) -> dict:
+    """k = esposizione media della strategia / esposizione media del benchmark, sullo stesso periodo valutato."""
+    from . import strategy
+    e_s, e_b = strategy.avg_exposure(res_s, start, end), strategy.avg_exposure(res_b, start, end)
+    return {"exposure_strategy": e_s, "exposure_benchmark": e_b, "k": e_s / e_b if e_b > 0 else float("nan")}
+
+
+def scaled_benchmark(r_b: pd.Series, k: float) -> pd.Series:
+    """Benchmark con una quota fissa k, ribilanciata ogni giorno, e il resto in liquidità allo 0%."""
+    return r_b * k

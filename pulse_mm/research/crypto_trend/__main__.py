@@ -136,6 +136,8 @@ def evaluate(sample: str) -> None:
     rate = robust.daily_cash_rate(tbill, runs[config.MAIN].equity.index)
     tb = {k: strategy.simulate(px, k, model, end=e, cash_rate=rate) for k in (config.MAIN, "BENCH")}
     r_tb = {k: v.returns(s, e) for k, v in tb.items()}
+    expo = robust.exposure_ratio(runs[config.MAIN], runs["BENCH"], s, e)
+    r_bk = robust.scaled_benchmark(r["BENCH"], expo["k"])
     out = {
         "outcome": verdict,
         "coverage": cov,
@@ -158,6 +160,9 @@ def evaluate(sample: str) -> None:
             "drawdown (revisione 4)": {
                 "strategy": robust.dd_profile(r[config.MAIN]), "benchmark": robust.dd_profile(r["BENCH"]),
                 "dd_windows_63_diff": robust.paired_bootstrap_metric(r[config.MAIN], r["BENCH"], robust.dd_windows)},
+            "benchmark_same_exposure (revisione 5)": {
+                **expo, "strategy": stats.summary(r[config.MAIN]), "benchmark_scaled": stats.summary(r_bk),
+                "bootstrap_21": stats.paired_bootstrap(r[config.MAIN], r_bk)},
             "cash_tbill_3m (revisione 4)": {
                 "coverage": tb_cov, "strategy": stats.summary(r_tb[config.MAIN]),
                 "benchmark": stats.summary(r_tb["BENCH"]),

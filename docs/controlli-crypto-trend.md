@@ -1,14 +1,14 @@
 # PULSE-CT ipotesi 1: controlli prima della firma (2026-11-11)
 
-Riferimento: [prereg-crypto-trend-v1.md](prereg-crypto-trend-v1.md), sezione 9 e revisioni 1-4 (sezione 9b).
+Riferimento: [prereg-crypto-trend-v1.md](prereg-crypto-trend-v1.md), sezione 9 e revisioni 1-5 (sezione 9b).
 - Codice in `pulse_mm/research/crypto_trend/` e `pulse_mm/core/costs.py`.
 - Secondo calcolo indipendente in `checks/crypto_trend_independent.py`; le sue scelte sono in
   `checks/out/ambiguities.md`.
-- Impronta attuale `b1c6dd542a8e7b9c` (`python -m pulse_mm.research.crypto_trend fingerprint`). Non è firmata.
+- Impronta attuale `ed0adafbfb4d3e7d` (`python -m pulse_mm.research.crypto_trend fingerprint`). Non è firmata.
 - Sul periodo di sviluppo **non è stata calcolata né stampata nessuna metrica di rendimento** (Sharpe, drawdown,
   CAGR): `dev` e `crosscheck` mostrano solo controlli e scarti.
 - Impronte congelate invariate: `desk/` `7d054586a815bd0f`, `pulse_st/` `2e28ab49223f98ad`.
-- 163 test verdi.
+- 165 test verdi.
 
 ## Stato degli otto criteri
 
@@ -76,3 +76,12 @@ conteggi 103 e 63 della revisione 1.
 - Controllo della leva: validazione e test non si riportano se un peso supera 1,01 in qualunque giorno. Sullo
   sviluppo il massimo è 0,95 (V3) e 0,95 (benchmark).
 - T-bill FRED DTB3 scaricati fino al 2020-12-31, con impronta; nessun buco oltre 4 giorni.
+
+## Revisione 5: esposizione diversa fra strategia e benchmark
+
+- Esposizione media sullo sviluppo: 0,20 la strategia, 0,52 il benchmark. Un drawdown più basso arriverebbe in parte
+  solo da qui: il giudice vero dell'ipotesi è il limite sullo Sharpe, che non cambia.
+- Nuova robustezza senza soglie: benchmark scalato alla stessa esposizione media, con il rapporto calcolato sul
+  periodo valutato.
+- Nuovo test: `val` eseguito per intero su dati sintetici. L'avviso dei test viene da starlette/anyio, non tocca i
+  calcoli.
