@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --color-void: #05070b;
+  --color-panel: #0a0e14;
+  --color-edge: #1c2430;
+  --color-ink: #d7e0ea;
+  --color-mute: #6b7a90;
+  --color-amber: #ffb547;
+  --color-cyan: #3dd6ff;
+  --color-violet: #9b7bff;
+  --color-gain: #3dff8f;
+  --color-loss: #ff4d5e;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+html, body { background: var(--color-void); color: var(--color-ink); }
+body {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  min-height: 100vh;
+  /* griglia da 24px */
+  background-image:
+    linear-gradient(rgba(61, 214, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(61, 214, 255, 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+/* scanline + grana, sopra a tutto ma non cliccabili */
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 60;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.05'/></svg>");
+  mix-blend-mode: overlay;
+}
+
+.label { text-transform: uppercase; letter-spacing: 0.16em; font-size: 10px; color: var(--color-mute); }
+.glow-gain { text-shadow: 0 0 18px rgba(61, 255, 143, 0.55), 0 0 2px rgba(61, 255, 143, 0.9); }
+.glow-loss { text-shadow: 0 0 18px rgba(255, 77, 94, 0.55), 0 0 2px rgba(255, 77, 94, 0.9); }
+.glow-amber { text-shadow: 0 0 12px rgba(255, 181, 71, 0.55); }
+.glow-cyan { text-shadow: 0 0 12px rgba(61, 214, 255, 0.55); }
+
+/* pannello: angoli vivi + piccoli angolari */
+.panel { position: relative; background: var(--color-panel); border: 1px solid var(--color-edge); }
+.panel::before, .panel::after {
+  content: ""; position: absolute; width: 8px; height: 8px; pointer-events: none; border-color: var(--color-cyan);
+  opacity: 0.7;
+}
+.panel::before { top: -1px; left: -1px; border-top: 1px solid; border-left: 1px solid; }
+.panel::after { bottom: -1px; right: -1px; border-bottom: 1px solid; border-right: 1px solid; }
+
+.tag { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; padding: 1px 6px; border: 1px solid; }
+
+/* nastro che scorre */
+.tape { display: flex; width: max-content; animation: tape 60s linear infinite; }
+.tape:hover { animation-play-state: paused; }
+@keyframes tape { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+.cursor::after { content: "▌"; margin-left: 2px; color: var(--color-gain); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { 0% { box-shadow: 0 0 0 0 rgba(61, 255, 143, 0.7), inset 0 0 40px rgba(61, 255, 143, 0.25); } 100% { box-shadow: 0 0 0 18px rgba(61, 255, 143, 0), inset 0 0 0 rgba(61, 255, 143, 0); } }
+
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-loss); box-shadow: 0 0 8px var(--color-loss); animation: blink 1.4s steps(1) infinite; }
+
+:focus-visible { outline: 1px solid var(--color-cyan); outline-offset: 2px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: #1c2430; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

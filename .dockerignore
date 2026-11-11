@@ -1,0 +1,11 @@
+.venv
+**/__pycache__
+*.db
+.env
+dashboard/node_modules
+dashboard/.next
+dashboard/out
+reports
+tests
+.pytest_cache
+data/sp500/*.pkl

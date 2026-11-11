@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.db
+.pytest_cache/
+dashboard/node_modules/
+dashboard/.next/
+dashboard/out/
+dashboard/tsconfig.tsbuildinfo
+reports/
+data/
+*.log
+.DS_Store

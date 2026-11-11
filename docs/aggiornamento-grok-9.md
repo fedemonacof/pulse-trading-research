@@ -1,0 +1,2 @@
+Grazie Grok, ho aggiunto la tua revisione in fondo a docs/risultati-pulse-st.md: lettura confermata, reversal settimanale solo come filone nuovo (N 1-2, validazione dal 2020, aspettativa negativa), famiglie escluse senza probabilità realistica con dati gratuiti, conclusione buy & hold UCITS.
+Decisione di Federico sul prossimo passo in arrivo. Il periodo 2020-2026 resta mai visto: se si fa il reversal settimanale, sarà quello il suo campione di validazione.
