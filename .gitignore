@@ -11,3 +11,8 @@ reports/
 data/
 *.log
 .DS_Store
+freqtrade/.venv/
+freqtrade/user_data/*.sqlite*
+freqtrade/user_data/logs/
+freqtrade/user_data/data/
+checks/out/*.csv

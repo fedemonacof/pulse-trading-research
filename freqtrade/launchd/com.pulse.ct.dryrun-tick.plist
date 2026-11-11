@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.pulse.ct.dryrun-tick</string>
+  <!-- Ora locale italiana (CET, UTC+1): 1:05 = 00:05 UTC. Valida fino all'ora legale di marzo. -->
+  <key>ProgramArguments</key><array>
+    <string>/Library/Frameworks/Python.framework/Versions/3.12/bin/python3</string><string>-m</string><string>pulse_mm.research.crypto_trend</string>
+    <string>dryrun</string><string>tick</string></array>
+  <key>WorkingDirectory</key><string>/Users/federicomonaco/Documents/PULSE</string>
+  <key>StartCalendarInterval</key><dict><key>Hour</key><integer>1</integer><key>Minute</key><integer>5</integer></dict>
+  <key>StandardOutPath</key><string>/Users/federicomonaco/Documents/PULSE/freqtrade/user_data/logs/dryrun-tick.out</string>
+  <key>StandardErrorPath</key><string>/Users/federicomonaco/Documents/PULSE/freqtrade/user_data/logs/dryrun-tick.err</string>
+</dict></plist>
