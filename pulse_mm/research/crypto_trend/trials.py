@@ -19,7 +19,8 @@ from . import config
 PKG = Path(__file__).resolve().parent
 TRIALS = PKG / "trials.jsonl"
 CODE_FILES = [PKG / f for f in ("__init__.py", "__main__.py", "config.py", "data.py", "fx.py", "live.py",
-                                "strategy.py", "stats.py", "trials.py", "crosscheck.py", "dryrun.py")] + [PKG.parents[1] / "core" / "costs.py"]
+                                "strategy.py", "stats.py", "trials.py", "crosscheck.py", "dryrun.py",
+                                "robust.py")] + [PKG.parents[1] / "core" / "costs.py"]
 
 
 def fingerprint() -> str:

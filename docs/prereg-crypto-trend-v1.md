@@ -398,6 +398,44 @@ Ognuno dei due calcoli si è allineato al testo qui sopra per conto suo; il seco
 
   Se nei giorni del dry-run non ce n'è nessuno, si dichiara che il risultato vale per giorni calmi.
 
+### Revisione 4, 2026-11-11: dopo la rilettura di Grok, prima della firma
+
+- **Motivo.** Grok ha riletto il pacchetto (`docs/rilettura-crypto-trend.md`) e ha risposto ai sei dubbi. Nessun
+  risultato è stato visto: sullo sviluppo esistono solo i controlli della sezione 9. La regola e gli esiti della
+  sezione 7 **non cambiano**.
+- **Aspettativa scritta prima della firma.**
+  - La validazione dura 2 anni (circa 730 giorni, 35 blocchi da 21) e il suo drawdown massimo dipende quasi tutto
+    dal crollo del 2022.
+  - L'IC90 di ΔDD sarà probabilmente largo: **"non concludente" è l'esito più probabile anche se il filtro
+    funziona**. Un esito non concludente non va letto come una sorpresa né come un motivo per allungare il periodo.
+- **Robustezze del drawdown, senza soglie** (`robust.py`), per strategia e benchmark:
+  - media dei drawdown massimi su **finestre consecutive di 63 giorni**, senza sovrapposizione, ognuna dal suo
+    primo giorno, scartando l'ultima finestra incompleta; si riporta anche l'IC90 della differenza strategia −
+    benchmark con lo stesso bootstrap della sezione 7;
+  - **drawdown medio**: media giornaliera della distanza dal massimo precedente;
+  - **durata media sotto il massimo**, in giorni; un periodo non recuperato alla fine conta fino all'ultimo giorno.
+- **Liquidità.**
+  - Caso base invariato: la liquidità rende 0%. È un limite **contro la strategia**, che sta in liquidità più del
+    benchmark, e si dichiara.
+  - Robustezza senza soglie: liquidità al rendimento dei **T-bill USA a 3 mesi** (FRED, serie DTB3, tasso di sconto
+    annuo diviso 360 per giorno di calendario). Il valore del giorno d si usa dal giorno d+1, quindi senza
+    lookahead. Vale anche per la liquidità del benchmark. File grezzo con impronta e stesso blocco delle date.
+  - **Limite:** un conto in stablecoin non rende il T-bill. Questa versione è un **tetto** di quello che la
+    liquidità avrebbe potuto rendere, non una stima. Il rendimento delle stablecoin non si usa, perché ha un
+    rischio di controparte che il benchmark non ha.
+- **Leva verificata, non solo dichiarata.**
+  - Il tetto si controlla sempre e solo il lunedì del riallineamento (punto 3b), con lo 0,4% residuo dichiarato.
+  - In più, per validazione e test: se il peso di una quota supera **1,01 in qualunque giorno**, il calcolo
+    **non si riporta** e si cerca l'errore. Sullo sviluppo il peso massimo è stato 0,95 per V3 e 0,95 per il
+    benchmark.
+- **Costi raddoppiati prima del 2025:** restano su tutta la validazione. Penalizzano in proporzione al turnover,
+  quindi soprattutto la strategia.
+- **Cambio BCE in EUR:** il fixing delle 14:15 CET è circa 11 ore prima della chiusura delle 24:00 UTC. Su una
+  robustezza di una regola settimanale è trascurabile; si usa sempre l'ultimo cambio pubblicato prima della
+  mezzanotte UTC.
+- **Indipendenza del secondo calcolo:** resta dichiarata come in revisione 2. Pesi, costi e rendimento coincidono
+  fino a circa 1e-9, cosa che non si ottiene inseguendo due conteggi.
+
 ## 10. Firma
 
 | Campo | Valore |

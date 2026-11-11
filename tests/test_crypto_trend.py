@@ -542,3 +542,91 @@ def test_missing_book_does_not_invalidate_day(dr):
     c = dryrun.check(now=at(2, minute=0), start_path=sp, log=lg)
     assert c["valid_days"] == 1
     assert dryrun.report(log=lg)["depth_cost_by_size"]["x1"]["no_snapshot"] == 2
+
+
+def test_dashboard_dryrun_state(dr):
+    from desk.web import crypto_dryrun_state
+    sp, lg, _ = dr
+    ft = FakeFT()
+    for k in (1, 2, 3):
+        dryrun.tick(ft, now=at(k), quote=quote_ok, cb_open=cb_ok, book=book_ok, start_path=sp, log=lg)
+    s = crypto_dryrun_state(now=at(5, minute=0), start_path=sp, log=lg, ft_up=lambda: True)
+    assert s["planned"] and s["fingerprint_ok"] and s["state"] == "in corso"
+    assert s["valid_days"] == 3 and s["missed_days"] == 1                # 4 dicembre: nessun ordine
+    assert [d["status"] for d in s["days"][:5]] == ["ok", "ok", "ok", "missed", "pending"]
+    assert s["next_decision"].startswith("2026-12-05T00:05")
+    assert s["orders"][0]["day"] == "2026-12-03" and "book" not in s["orders"][0]
+    assert s["report"]["orders"] == 6
+    assert not crypto_dryrun_state(start_path=sp.parent / "nessuno.json", log=lg, ft_up=lambda: False)["planned"]
+
+
+# ------------------------------------------------------------ revisione 4: leva, drawdown, liquidità al T-bill
+
+from pulse_mm.research.crypto_trend import robust  # noqa: E402
+
+
+def test_leverage_check_passes_and_fails(px):
+    res = strategy.simulate(px, "BENCH", MODEL, end="2018-06-01")
+    s, e = pd.Timestamp("2018-01-01"), pd.Timestamp("2018-06-01")
+    ok = robust.leverage_check(res, s, e)
+    assert ok["ok"] and ok["max_weight"] <= 1.01 and ok["limit"] == pytest.approx(1.01)
+    res.weights.loc["2018-03-01", "BTC-USD"] = 1.02
+    bad = robust.leverage_check(res, s, e)
+    assert not bad["ok"] and bad["on"] == pd.Timestamp("2018-03-01")
+
+
+def test_drawdown_measures_on_known_series():
+    r = np.r_[np.full(63, 0.0), -0.10, np.full(62, 0.0), 0.5]            # 2 finestre piene + 1 giorno scartato
+    assert robust.dd_windows(r) == pytest.approx(0.05)                   # (0 + 0,10) / 2
+    flat = np.zeros(10)
+    assert robust.mean_dd(flat) == 0.0 and robust.mean_underwater_days(flat) == 0.0
+    x = np.r_[-0.5, 0.0, 1.0, 0.1, -0.1, 0.0]                           # sotto il massimo: 2 giorni, poi 2 giorni
+    assert robust.mean_underwater_days(x) == pytest.approx(2.0)
+    path = np.cumprod(1 + x)
+    peak = np.maximum.accumulate(np.r_[1.0, path])[1:]
+    assert robust.mean_dd(x) == pytest.approx(np.mean(1 - path / peak))
+    assert np.isnan(robust.dd_windows(np.zeros(10)))
+
+
+def test_paired_bootstrap_metric_is_zero_for_identical_series():
+    r = pd.Series(np.random.default_rng(3).normal(0, 0.02, 400))
+    out = robust.paired_bootstrap_metric(r, r, robust.dd_windows, n=200)
+    assert out["point"] == 0.0 and out["lo"] == 0.0 and out["hi"] == 0.0 and out["seed"] == config.SEED
+
+
+def test_tbill_parse_and_no_lookahead():
+    blob = b"observation_date,DTB3\n2020-01-02,1.50\n2020-01-03,.\n2020-01-06,1.60\n"
+    t = robust.tbill_parse(blob)
+    assert list(t.index.strftime("%Y-%m-%d")) == ["2020-01-02", "2020-01-06"]
+    days = pd.date_range("2020-01-03", "2020-01-07")
+    r = robust.daily_cash_rate(t, days)
+    assert r["2020-01-03"] == pytest.approx(0.015 / 360)                # valore del 2 gennaio, valido dal 3
+    assert r["2020-01-06"] == pytest.approx(0.015 / 360)                # il 6 non usa ancora il valore del 6
+    assert r["2020-01-07"] == pytest.approx(0.016 / 360)
+    with pytest.raises(ValueError):
+        robust.daily_cash_rate(t, pd.date_range("2020-01-01", "2020-01-03"))
+
+
+def test_tbill_respects_date_lock_and_hashes(tmp_path, monkeypatch):
+    with pytest.raises(PermissionError):
+        robust.tbill_download("2020-12-01", "2021-01-05", get=lambda u: b"", st="unsigned")
+    monkeypatch.setattr(robust, "TB_DIR", tmp_path)
+    monkeypatch.setattr(robust, "TB_MANIFEST", tmp_path / "manifest.json")
+    blob = b"observation_date,DTB3\n2020-01-02,1.50\n2020-01-03,1.55\n"
+    robust.tbill_save("2020-01-01", "2020-01-03", blob)
+    assert len(robust.tbill_load(st="unsigned")) == 2
+    (tmp_path / "DTB3-FRED_2020-01-01_2020-01-03.csv").write_bytes(blob + b"x")
+    with pytest.raises(PermissionError):
+        robust.tbill_load(st="unsigned")
+
+
+def test_simulate_with_cash_rate_reconciles(px):
+    base = strategy.simulate(px, "V3", MODEL, end="2018-06-01")
+    same = strategy.simulate(px, "V3", MODEL, end="2018-06-01", cash_rate=None)
+    pd.testing.assert_series_equal(base.equity, same.equity)
+    assert base.interest.abs().max() == 0.0
+    rate = pd.Series(0.05 / 360, index=base.equity.index)
+    tb = strategy.simulate(px, "V3", MODEL, end="2018-06-01", cash_rate=rate)
+    assert tb.interest.iloc[-1] > 0
+    assert strategy.reconcile(tb)["ok"]
+    assert tb.equity.iloc[-1] > base.equity.iloc[-1]

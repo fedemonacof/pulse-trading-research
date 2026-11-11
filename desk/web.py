@@ -15,7 +15,8 @@ import hashlib
 import json
 import os
 import re
-from datetime import datetime, timezone
+import urllib.request
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -279,6 +280,69 @@ def build_state(j: Journal, limits: RiskLimits) -> dict:
     }
 
 
+# ---------------------------------------------------------------- Dry-run crypto (PULSE-CT, criterio 7)
+
+def _freqtrade_up(url: str = "http://127.0.0.1:8080/api/v1/ping") -> bool:
+    try:
+        with urllib.request.urlopen(url, timeout=1.5) as r:
+            return json.loads(r.read()).get("status") == "pong"
+    except Exception:
+        return False
+
+
+def crypto_dryrun_state(now: datetime | None = None, start_path=None, log=None, ft_up=_freqtrade_up) -> dict:
+    """Stato del dry-run per la dashboard: solo lettura del piano e del registro, niente ordini.
+
+    Mostra scarti di esecuzione, spread e profondità del book (costi), mai rendimenti della strategia."""
+    from pulse_mm.research.crypto_trend import config as ct
+    from pulse_mm.research.crypto_trend import dryrun
+
+    start_path = start_path or dryrun.START
+    log = log or dryrun.LOG
+    now = now or datetime.now(timezone.utc)
+    try:
+        plan = dryrun.load_start(start_path)
+    except FileNotFoundError:
+        return {"planned": False, "freqtrade_up": ft_up()}
+    rows = dryrun.rows(log)
+    by_day: dict[str, list] = {}
+    for r in rows:
+        by_day.setdefault(r["day"], []).append(r)
+    d, last = date.fromisoformat(plan["start"]), date.fromisoformat(plan["last_day_max"])
+    days, valid, missed = [], 0, 0
+    while d <= last:
+        due = now >= dryrun.decision_time(d) + timedelta(seconds=ct.DRYRUN_MAX_DELAY_S + 60)
+        if valid >= ct.DRYRUN_DAYS or missed > ct.DRYRUN_MAX_MISSED:
+            status, issues = "unused", []
+        elif not due:
+            status, issues = "pending", []
+        else:
+            ok, issues = dryrun.day_status(by_day.get(d.isoformat(), []))
+            status = "ok" if ok else "missed"
+            valid += ok
+            missed += not ok
+        days.append({"day": d.isoformat(), "status": status, "issues": issues})
+        d += timedelta(days=1)
+    nxt = next((x["day"] for x in days if x["status"] == "pending"), None)
+    orders = []
+    for r in rows[-40:]:
+        m = dryrun.measures(r) if r.get("asset") else None
+        orders.append({"day": r["day"], "asset": r.get("asset"), "side": r.get("side"), "status": r.get("status"),
+                       "mid": (r.get("okx") or {}).get("mid"), "fill": r.get("fill"),
+                       "coinbase_open": r.get("coinbase_open"), "delay_s": r.get("delay_s"),
+                       "exec_gap_bp": m and m["exec_gap_bp"], "venue_basis_bp": m and m["venue_basis_bp"],
+                       "spread_bp": m and m["spread_bp"], "depth_bp": m and m["depth_bp"]})
+    rep = dryrun.report(log) if rows else {"orders": 0}
+    return {"planned": True, "plan": plan, "fingerprint_ok": dryrun.plan_fingerprint() == plan["fingerprint"],
+            "freqtrade_up": ft_up(), "now": now.isoformat(),
+            "next_decision": dryrun.decision_time(date.fromisoformat(nxt)).isoformat() if nxt else None,
+            "valid_days": valid, "missed_days": missed, "needed": ct.DRYRUN_DAYS, "max_missed": ct.DRYRUN_MAX_MISSED,
+            "state": ("fallito" if missed > ct.DRYRUN_MAX_MISSED else "completo" if valid >= ct.DRYRUN_DAYS
+                      else "in corso" if any(x["status"] != "pending" for x in days) else "in attesa"),
+            "days": days, "orders": list(reversed(orders)), "report": rep,
+            "cost_cap_bp": ct.DRYRUN_COST_BP, "taker_bp": ct.TAKER_BP}
+
+
 class KillRequest(BaseModel):
     confirm: bool
 
@@ -330,6 +394,15 @@ def create_app(db_path: str | None = None, dashboard_dir: Path | None = None) ->
         j.set("satellite_halted", False)
         j.set("satellite_peak", None)
         return {"ok": True}
+
+    @app.get("/api/crypto/dryrun")
+    def crypto_dryrun():
+        return JSONResponse(json.loads(json.dumps(crypto_dryrun_state(), default=str)))
+
+    if (ui / "crypto.html").exists():
+        @app.get("/crypto")
+        def crypto_page():
+            return FileResponse(ui / "crypto.html")
 
     if (ui / "index.html").exists():
         app.mount("/", StaticFiles(directory=ui, html=True), name="dashboard")

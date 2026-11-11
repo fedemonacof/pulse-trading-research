@@ -71,6 +71,7 @@ class Result:
     trades: list = field(default_factory=list)
     weights: pd.DataFrame | None = None
     realigned: list = field(default_factory=list)
+    interest: pd.Series | None = None             # interessi cumulati sulla liquidità (robustezza T-bill)
 
     def returns(self, start, end) -> pd.Series:
         r = self.equity.pct_change()
@@ -103,12 +104,15 @@ def sleeve_shares(sig: dict[str, pd.DataFrame], i: int, split: str = "equal") ->
 
 def simulate(px: dict[str, pd.DataFrame], variant: str, model: CostModelBp, end, capital: float = 100_000.0,
              stress: float = 1.0, weekday: int | None = config.DECISION_WEEKDAY,
-             threshold: float = config.THRESHOLD, split: str = "equal") -> Result:
+             threshold: float = config.THRESHOLD, split: str = "equal",
+             cash_rate: pd.Series | None = None) -> Result:
     """Simula la regola dal primo giorno di dati fino a `end`. px: candele giornaliere per asset (open, close).
 
     `weekday=None` riproduce la regola giornaliera scartata nella revisione 1 (solo per documentarne il turnover).
     `split="risk_parity"` è la robustezza della sezione 2: al riallineamento mensile le quote vanno in proporzione a
     1/σ₆₃ di ogni asset alla chiusura della domenica, invece di 50/50. Prima che σ₆₃ esista resta 50/50.
+    `cash_rate` è la robustezza della revisione 4: tasso semplice giornaliero per giorno di calendario, applicato
+    alla liquidità di ogni quota a fine giornata (anche se negativa, come costo). Senza, la liquidità rende 0%.
     """
     if split not in ("equal", "risk_parity"):
         raise ValueError(f"split sconosciuto: {split}")
@@ -132,6 +136,8 @@ def simulate(px: dict[str, pd.DataFrame], variant: str, model: CostModelBp, end,
     weights = np.zeros((len(days), len(assets)))
     realigned = []
     last_lvl = {a: np.nan for a in assets}
+    rate = cash_rate.reindex(days).fillna(0.0).to_numpy() if cash_rate is not None else None
+    int_cum, interest = 0.0, np.zeros(len(days))
     for i, d in enumerate(days):
         o = opens.iloc[i]
         mark = o.where(o.notna(), closes.iloc[i - 1] if i > 0 else o)   # prezzo di riferimento all'apertura
@@ -174,6 +180,12 @@ def simulate(px: dict[str, pd.DataFrame], variant: str, model: CostModelBp, end,
                                "slippage": cost.slippage,
                                "weight_after": units[a] * o[a] / (units[a] * o[a] + cash[a]),
                                "equity": sum(units[b] * (mark[b] if pd.notna(mark[b]) else 0.0) + cash[b] for b in assets)})
+        if rate is not None and rate[i]:
+            for a in assets:
+                x = cash[a] * rate[i]
+                cash[a] += x
+                int_cum += x
+        interest[i] = int_cum
         c = closes.iloc[i]
         sleeve = {a: units[a] * (c[a] if pd.notna(c[a]) else 0.0) for a in assets}
         eq[i] = sum(sleeve[a] + cash[a] for a in assets)
@@ -182,7 +194,8 @@ def simulate(px: dict[str, pd.DataFrame], variant: str, model: CostModelBp, end,
             weights[i, j] = sleeve[a] / cap if cap else 0.0
     equity = pd.Series(eq, index=days)
     return Result(equity=equity, gross_equity=replay_gross(trades, closes, capital, days), ledger=ledger,
-                  trades=trades, weights=pd.DataFrame(weights, index=days, columns=assets), realigned=realigned)
+                  trades=trades, weights=pd.DataFrame(weights, index=days, columns=assets), realigned=realigned,
+                  interest=pd.Series(interest, index=days))
 
 
 def replay_gross(trades: list, closes: pd.DataFrame, capital: float, days: pd.DatetimeIndex) -> pd.Series:
@@ -208,7 +221,8 @@ def reconcile(res: Result) -> dict:
     for (d, _), _, c in res.ledger.rows:
         cum.loc[d] += c.total
     cum = cum.cumsum()
-    err = ((res.gross_equity - res.equity) - cum).abs() / res.equity * 1e4
+    paid = cum - (res.interest if res.interest is not None else 0.0)   # lordo − netto = costi − interessi
+    err = ((res.gross_equity - res.equity) - paid).abs() / res.equity * 1e4
     return {"max_error_bp": float(err.max()), "ok": bool(err.max() <= 0.01),
             "costs_total": float(cum.iloc[-1])}
 

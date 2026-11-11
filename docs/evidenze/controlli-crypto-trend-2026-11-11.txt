@@ -1,0 +1,178 @@
+# Output dei controlli PULSE-CT, 2026-11-11T21:47Z
+
+## fingerprint
+impronta b1c6dd542a8e7b9c · firmata non ancora · stato unsigned · dati fino a 2020-12-31
+
+## dev (criteri 3, 4, 5, 6-lookahead, leva della revisione 4; nessuna metrica di rendimento)
+Dati (criterio 3):
+{
+  "BTC-USD": {
+    "impossible_bars": [],
+    "coverage": {
+      "first": "2016-01-01",
+      "days": 1675,
+      "present": 1675,
+      "share": 1.0,
+      "max_missing_run": 0,
+      "ok": true
+    }
+  },
+  "ETH-USD": {
+    "impossible_bars": [],
+    "coverage": {
+      "first": "2016-05-18",
+      "days": 1675,
+      "present": 1675,
+      "share": 1.0,
+      "max_missing_run": 0,
+      "ok": true
+    }
+  }
+}
+Cambio BCE per la robustezza in EUR, solo copertura:
+{
+  "rates": 1177,
+  "first": "2016-05-27 00:00:00",
+  "last": "2020-12-31 00:00:00",
+  "longest_gap_days": 5,
+  "ok": true
+}
+T-bill a 3 mesi per la robustezza della liquidità, solo copertura:
+{
+  "rates": 1149,
+  "first": "2016-05-27 00:00:00",
+  "last": "2020-12-31 00:00:00",
+  "longest_gap_days": 4,
+  "ok": true
+}
+Sviluppo 2018-2020, solo controlli (nessuna metrica di rendimento):
+{
+  "taker_bp": 10.0,
+  "taker_provisional": false,
+  "V3": {
+    "reconcile_costs (criterio 4)": {
+      "max_error_bp": 7.369869024236408e-12,
+      "ok": true,
+      "costs_total": 26505.56770770615
+    },
+    "turnover (criterio 5)": {
+      "trades": 103,
+      "turnover_per_year": 4.347706626889599,
+      "ok": true,
+      "median_trade_share_of_capital": 0.1043556629712016
+    },
+    "costs_bp_of_notional": {
+      "fee": 20.0,
+      "spread": 10.0,
+      "slippage": 10.0,
+      "venue_basis": 0.0,
+      "funding": 0.0,
+      "borrow": 0.0,
+      "other": 0.0,
+      "total": 40.0
+    },
+    "avg_weight": 0.2011781299956515,
+    "lookahead_truncation (revisione 2)": {
+      "cut": "2019-06-30",
+      "trades_compared": 79,
+      "trades_equal": true,
+      "max_weight_diff": 0.0,
+      "max_equity_diff": 0.0,
+      "ok": true
+    },
+    "leverage (revisione 4)": {
+      "max_weight": 0.9511111815057475,
+      "on": "2020-08-01 00:00:00",
+      "limit": 1.01,
+      "ok": true
+    }
+  },
+  "BENCH": {
+    "reconcile_costs (criterio 4)": {
+      "max_error_bp": 5.281599434279708e-12,
+      "ok": true,
+      "costs_total": 13214.778015282924
+    },
+    "turnover (criterio 5)": {
+      "trades": 63,
+      "turnover_per_year": 1.4195694570937158,
+      "ok": true,
+      "median_trade_share_of_capital": 0.06301392778096654
+    },
+    "costs_bp_of_notional": {
+      "fee": 19.999999999999986,
+      "spread": 9.999999999999993,
+      "slippage": 9.999999999999993,
+      "venue_basis": 0.0,
+      "funding": 0.0,
+      "borrow": 0.0,
+      "other": 0.0,
+      "total": 39.99999999999997
+    },
+    "avg_weight": 0.5224734797753591,
+    "lookahead_truncation (revisione 2)": {
+      "cut": "2019-06-30",
+      "trades_compared": 60,
+      "trades_equal": true,
+      "max_weight_diff": 0.0,
+      "max_equity_diff": 0.0,
+      "ok": true
+    },
+    "leverage (revisione 4)": {
+      "max_weight": 0.9520961704179698,
+      "on": "2018-11-07 00:00:00",
+      "limit": 1.01,
+      "ok": true
+    }
+  }
+}
+
+## crosscheck (criterio 6)
+{
+  "V3": {
+    "trades_pulse": 103,
+    "trades_independent": 103,
+    "matched": 103,
+    "only_pulse": [],
+    "only_independent": [],
+    "max_weight_diff_pts": 4.979050505227178e-09,
+    "max_cost_diff_bp": 1.5211356479971627e-11,
+    "mismatches": [],
+    "annual_return_gap_bp": 3.0610008885240125e-09,
+    "ok": true
+  },
+  "BENCH": {
+    "trades_pulse": 63,
+    "trades_independent": 63,
+    "matched": 63,
+    "only_pulse": [],
+    "only_independent": [],
+    "max_weight_diff_pts": 4.941447251383124e-09,
+    "max_cost_diff_bp": 5.293075006074233e-12,
+    "mismatches": [],
+    "annual_return_gap_bp": 3.5984073793599025e-09,
+    "ok": true
+  }
+}
+
+## dryrun start.json (criterio 7)
+{
+  "start": "2026-11-13",
+  "valid_days_needed": 28,
+  "last_day_max": "2026-12-13",
+  "time_utc": "00:05",
+  "max_delay_s": 120,
+  "max_missed": 3,
+  "size_frac": 0.104,
+  "stake_usdc": 10400.0,
+  "capital_usdc": 100000.0,
+  "pairs": {
+    "BTC-USD": "BTC/USDC",
+    "ETH-USD": "ETH/USDC"
+  },
+  "freqtrade": "2026.10",
+  "fingerprint": "ef309217960d3c14"
+}
+
+## test
+163 passed, 1 warning in 17.79s

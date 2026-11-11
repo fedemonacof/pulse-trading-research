@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-from . import config, crosscheck, data, dryrun, fx, stats, strategy, trials
+from . import config, crosscheck, data, dryrun, fx, robust, stats, strategy, trials
 
 
 def _fmt(x):
@@ -55,6 +55,13 @@ def fetch() -> None:
     if pd.Timestamp(start) <= pd.Timestamp(end):
         digest = fx.save(start, end, fx.download(start, end, st=st))
         print(f"EUR/USD BCE: {start} → {end} · sha256 {digest}")
+    have_tb = robust.tbill_manifest()
+    start = config.FETCH_START
+    if have_tb:
+        start = (max(pd.Timestamp(k.split("_")[2][:10]) for k in have_tb) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    if pd.Timestamp(start) <= pd.Timestamp(end):
+        digest = robust.tbill_save(start, end, robust.tbill_download(start, end, st=st))
+        print(f"T-bill 3 mesi FRED DTB3: {start} → {end} · sha256 {digest}")
 
 
 def checks(px: dict) -> dict:
@@ -73,6 +80,8 @@ def dev() -> None:
     print("Dati (criterio 3):\n" + show(dq))
     print("Cambio BCE per la robustezza in EUR, solo copertura:\n"
           + show(fx.gaps(fx.load(), config.WARMUP_START, config.PERIODS["dev"][1])))
+    print("T-bill a 3 mesi per la robustezza della liquidità, solo copertura:\n"
+          + show(robust.tbill_gaps(robust.tbill_load(), config.WARMUP_START, config.PERIODS["dev"][1])))
     if any(v["impossible_bars"] for v in dq.values()):
         raise SystemExit("Barre impossibili: il test si ferma (regola v2)")
     s, e = config.PERIODS["dev"]
@@ -87,6 +96,7 @@ def dev() -> None:
             "avg_weight": strategy.avg_exposure(res, s, e),
         }
         report[name]["lookahead_truncation (revisione 2)"] = strategy.truncation_check(px, name, model, "2019-06-30", e)
+        report[name]["leverage (revisione 4)"] = robust.leverage_check(res, s, e)
         trials.record("dev", name, report[name])
     print("Sviluppo 2018-2020, solo controlli (nessuna metrica di rendimento):\n" + show(report))
 
@@ -108,6 +118,11 @@ def evaluate(sample: str) -> None:
     fx_cov = fx.gaps(usd_per_eur, s, e)
     model = strategy.cost_model()
     runs = {k: strategy.simulate(px, k, model, end=e) for k in (config.MAIN, "BENCH", "V1")}
+    lev = {k: robust.leverage_check(v, s, e) for k, v in runs.items()}
+    if not all(x["ok"] for x in lev.values()):
+        raise SystemExit(f"Leva oltre {1 + robust.LEV_TOL:.2f} (revisione 4): il calcolo non si riporta. {lev}")
+    tbill = robust.tbill_load()
+    tb_cov = robust.tbill_gaps(tbill, s, e)
     r = {k: v.returns(s, e) for k, v in runs.items()}
     boot = stats.paired_bootstrap(r[config.MAIN], r["BENCH"])
     verdict = stats.outcome(boot)
@@ -118,13 +133,16 @@ def evaluate(sample: str) -> None:
     rp = {k: strategy.simulate(px, k, model, end=e, split="risk_parity") for k in (config.MAIN, "BENCH")}
     r_rp = {k: v.returns(s, e) for k, v in rp.items()}
     r_eur = {k: fx.returns_eur(runs[k], usd_per_eur, s, e) for k in (config.MAIN, "BENCH")}
+    rate = robust.daily_cash_rate(tbill, runs[config.MAIN].equity.index)
+    tb = {k: strategy.simulate(px, k, model, end=e, cash_rate=rate) for k in (config.MAIN, "BENCH")}
+    r_tb = {k: v.returns(s, e) for k, v in tb.items()}
     out = {
         "outcome": verdict,
         "coverage": cov,
         "main": {"strategy": stats.summary(r[config.MAIN]), "benchmark": stats.summary(r["BENCH"]),
                  "bootstrap_21": boot, "dsr": stats.deflated_sharpe(r[config.MAIN]),
                  "reconcile": strategy.reconcile(runs[config.MAIN]),
-                 "turnover": strategy.turnover(runs[config.MAIN], s, e)},
+                 "turnover": strategy.turnover(runs[config.MAIN], s, e), "leverage": lev},
         "robustness (senza soglie)": {
             "bootstrap_63": stats.paired_bootstrap(r[config.MAIN], r["BENCH"], block=config.BOOT_BLOCK_ROBUST),
             "costs_x3": {"strategy": stats.summary(stress[config.MAIN]), "benchmark": stats.summary(stress["BENCH"])},
@@ -137,6 +155,14 @@ def evaluate(sample: str) -> None:
                 "strategy": stats.summary(r_rp[config.MAIN]), "benchmark": stats.summary(r_rp["BENCH"]),
                 "bootstrap_21": stats.paired_bootstrap(r_rp[config.MAIN], r_rp["BENCH"]),
                 "reconcile": strategy.reconcile(rp[config.MAIN])},
+            "drawdown (revisione 4)": {
+                "strategy": robust.dd_profile(r[config.MAIN]), "benchmark": robust.dd_profile(r["BENCH"]),
+                "dd_windows_63_diff": robust.paired_bootstrap_metric(r[config.MAIN], r["BENCH"], robust.dd_windows)},
+            "cash_tbill_3m (revisione 4)": {
+                "coverage": tb_cov, "strategy": stats.summary(r_tb[config.MAIN]),
+                "benchmark": stats.summary(r_tb["BENCH"]),
+                "bootstrap_21": stats.paired_bootstrap(r_tb[config.MAIN], r_tb["BENCH"]),
+                "reconcile": strategy.reconcile(tb[config.MAIN])},
         },
     }
     trials.record(sample, config.MAIN, out, outcome=verdict)

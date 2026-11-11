@@ -21,6 +21,11 @@ export default function Page() {
         </div>
       )}
 
+      <nav className="flex gap-4 border-b border-edge px-4 py-1.5" aria-label="Sezioni">
+        <span className="label !text-ink">Azioni</span>
+        <a href="/crypto" className="label hover:text-cyan">Crypto dry-run</a>
+      </nav>
+
       <main className="mx-auto grid w-full max-w-[1800px] flex-1 grid-cols-1 gap-3 p-3 xl:grid-cols-12">
         {!s ? (
           <div className="col-span-full grid min-h-[60vh] place-items-center text-mute">
